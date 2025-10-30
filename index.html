@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' data:;">
+  <title>Karna Hospital - Appointment Tracker</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f7f9fb;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    header {
+      background-color: #007bff;
+      color: white;
+      text-align: center;
+      padding: 1.2em 0;
+      font-size: 1.6em;
+      font-weight: bold;
+    }
+    main {
+      max-width: 850px;
+      margin: 2em auto;
+      background: white;
+      padding: 2em;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #007bff;
+    }
+    form {
+      display: grid;
+      gap: 1em;
+      margin-bottom: 2em;
+    }
+    input, select, textarea, button {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1em;
+      width: 100%;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      border: none;
+      transition: background 0.3s;
+    }
+    button:hover { background-color: #0056b3; }
+    .appointment {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 1em;
+      margin-bottom: 1em;
+      background: #fafafa;
+    }
+    .appointment h3 { margin-top: 0; color: #007bff; }
+    .actions {
+      margin-top: 1em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .view-report, .edit, .delete, .download {
+      background: #e9ecef;
+      padding: 6px 10px;
+      border-radius: 5px;
+      text-decoration: none;
+      color: #007bff;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .delete { color: red; }
+    .edit { color: green; }
+    .download { color: #0056b3; }
+    footer {
+      text-align: center;
+      padding: 1em;
+      background: #007bff;
+      color: white;
+      margin-top: 3em;
+      border-radius: 0 0 12px 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>Karna Hospital — Guntur, Andhra Pradesh</header>
+
+  <main>
+    <h2>Book & Manage Your Appointments</h2>
+    <form id="appointmentForm" enctype="multipart/form-data">
+      <input type="hidden" id="editId" value="">
+      <label for="name">Full Name:</label>
+      <input type="text" id="name" required title="Full name of the patient" placeholder="Enter full name" />
+      <label for="gender">Gender:</label>
+      <select id="gender" required title="Select gender" aria-label="Gender">
+        <option value="">-- Select Gender --</option>
+        <option>Male</option>
+        <option>Female</option>
+        <option>Other</option>
+      </select>
+      <label for="dob">Date of Birth:</label>
+      <input type="date" id="dob" required title="Date of birth" placeholder="YYYY-MM-DD" />
+      <label for="phone">Phone Number:</label>
+      <input type="tel" id="phone" pattern="[0-9]{10}" required title="10 digit phone number" placeholder="e.g. 9876543210" />
+      <label for="email">Email Address:</label>
+      <input type="email" id="email" required title="Email address" placeholder="name@example.com" />
+      <label for="address">Address:</label>
+      <textarea id="address" required title="Postal address" placeholder="Enter address"></textarea>
+      <label for="doctor">Select Doctor:</label>
+      <select id="doctor" required title="Select doctor">
+        <option value="">-- Select Doctor --</option>
+        <option value="Dr. Sameer Joshi — Orthopedic">Dr. Sameer Joshi — Orthopedic</option>
+        <option value="Dr. Neha Kapoor — Dermatologist">Dr. Neha Kapoor — Dermatologist</option>
+        <option value="Dr. Suresh Reddy — Neurologist">Dr. Suresh Reddy — Neurologist</option>
+        <option value="Dr. Kavitha Menon — Cardiologist">Dr. Kavitha Menon — Cardiologist</option>
+      </select>
+      <label for="date">Appointment Date:</label>
+      <input type="date" id="date" required title="Appointment date" placeholder="YYYY-MM-DD" />
+      <label for="time">Appointment Time:</label>
+      <input type="time" id="time" required title="Appointment time" placeholder="HH:MM" />
+      <label for="symptoms">Symptoms / Reason for Visit:</label>
+      <textarea id="symptoms" required title="Symptoms or reason for visit" placeholder="Describe symptoms"></textarea>
+      <label for="report">Upload Previous Report (Optional):</label>
+      <input type="file" id="report" accept=".pdf,.jpg,.png,.jpeg,.txt" title="Upload previous report" />
+      <button type="submit">Save Appointment</button>
+    </form>
+    <section id="appointmentsList"></section>
+  </main>
+
+  <footer>© 2025 Karna Hospital — All Rights Reserved</footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    const form = document.getElementById("appointmentForm");
+    const list = document.getElementById("appointmentsList");
+
+    async function loadAppointments() {
+      const res = await fetch("/appointments");
+      const data = await res.json();
+      list.innerHTML = "";
+      if (data.length === 0) {
+        list.innerHTML = "<p>No appointments found.</p>";
+        return;
+      }
+      data.forEach(a => {
+        const div = document.createElement("div");
+        div.className = "appointment";
+        div.innerHTML = `
+          <h3>${a.name} — ${a.doctor}</h3>
+          <p><strong>Date:</strong> ${a.date} at ${a.time}</p>
+          <p><strong>Gender:</strong> ${a.gender} | <strong>DOB:</strong> ${a.dob}</p>
+          <p><strong>Phone:</strong> ${a.phone} | <strong>Email:</strong> ${a.email}</p>
+          <p><strong>Address:</strong> ${a.address}</p>
+          <p><strong>Symptoms:</strong> ${a.symptoms}</p>
+          <div class="actions">
+            ${a.report ? `<a href="${a.report}" class="view-report" target="_blank">📎 View Report</a>` : ""}
+            <span class="download" onclick='downloadPDF(${JSON.stringify(a)})'>📄 Download PDF</span>
+            <span class="edit" onclick='editAppointment(${JSON.stringify(a)})'>✏️ Edit</span>
+            <span class="delete" onclick="deleteAppointment('${a.id}')">🗑 Delete</span>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function downloadPDF(a) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text("Karna Hospital - Appointment Slip", 20, 20);
+      doc.setFontSize(12);
+      doc.text(`Patient Name: ${a.name}`, 20, 40);
+      doc.text(`Gender: ${a.gender}`, 20, 48);
+      doc.text(`DOB: ${a.dob}`, 20, 56);
+      doc.text(`Phone: ${a.phone}`, 20, 64);
+      doc.text(`Email: ${a.email}`, 20, 72);
+      doc.text(`Address: ${a.address}`, 20, 80);
+      doc.text(`Doctor: ${a.doctor}`, 20, 96);
+      doc.text(`Date: ${a.date}`, 20, 104);
+      doc.text(`Time: ${a.time}`, 20, 112);
+      doc.text("Symptoms:", 20, 120);
+      doc.text(a.symptoms, 20, 128, { maxWidth: 170 });
+      doc.text("Thank you for visiting Karna Hospital.", 20, 150);
+      doc.save(`${a.name.replace(/\s+/g, "_")}_appointment.pdf`);
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const editId = document.getElementById("editId").value;
+      const formData = new FormData();
+      const method = editId ? "PUT" : "POST";
+      const url = editId ? `/appointments/${editId}` : "/appointments";
+      ["name","gender","dob","phone","email","address","doctor","date","time","symptoms"].forEach(id=>{
+        formData.append(id, document.getElementById(id).value);
+      });
+      if (document.getElementById("report").files[0]) {
+        formData.append("report", document.getElementById("report").files[0]);
+      }
+      const res = await fetch(url, { method, body: formData });
+      if (res.ok) {
+        alert(editId ? "✏️ Appointment updated!" : "✅ Appointment added!");
+        form.reset();
+        document.getElementById("editId").value = "";
+        loadAppointments();
+      } else {
+        alert("❌ Error saving appointment.");
+      }
+    });
+
+    async function deleteAppointment(id) {
+      if (!confirm("Delete this appointment?")) return;
+      const res = await fetch(`/appointments/${id}`, { method: "DELETE" });
+      if (res.ok) loadAppointments();
+    }
+
+    function editAppointment(a) {
+      for (let key in a) {
+        if (document.getElementById(key)) document.getElementById(key).value = a[key];
+      }
+      document.getElementById("editId").value = a.id;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    loadAppointments();
+  </script>
+</body>
+</html>
